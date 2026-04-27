@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X Viral Score — ประเมินพลังไวรัลของโพสต์</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050709;
+    --surface: #0a0e18;
+    --surface2: #0f1520;
+    --border: #182030;
+    --accent: #00f0ff;
+    --accent2: #ff2d55;
+    --accent3: #bf5fff;
+    --gold: #f5c518;
+    --text: #eaf0ff;
+    --muted: #506070;
+    --green: #00e5a0;
+    --orange: #ff9f00;
+    --red: #ff3040;
+    --glow-cyan: rgba(0,240,255,0.18);
+    --glow-red: rgba(255,45,85,0.18);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,240,255,0.07) 0%, rgba(191,95,255,0.04) 50%, transparent 100%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Header */
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,11,18,0.92);
+    backdrop-filter: blur(20px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-img {
+    height: 48px;
+    width: auto;
+    filter: brightness(1.1);
+  }
+
+  .logo-text {
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    color: #ffffff;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .logo-text span {
+    color: #ffffff;
+  }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    color: var(--accent);
+    opacity: 0.7;
+  }
+
+  .powered-by {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .powered-by a {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 5px 14px;
+    border: 1px solid rgba(0,229,255,0.35);
+    border-radius: 20px;
+    transition: all 0.25s;
+    letter-spacing: 1px;
+  }
+
+  .powered-by a:hover {
+    background: rgba(0,229,255,0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(0,229,255,0.2);
+  }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    z-index: 5;
+    text-align: center;
+    padding: 60px 40px 40px;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0.8;
+  }
+
+  .hero h1 {
+    font-size: clamp(32px, 6vw, 64px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 60px rgba(0,240,255,0.15);
+  }
+
+  .hero h1 .highlight {
+    background: linear-gradient(90deg, var(--accent), #7b61ff, var(--accent2));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradShift 4s ease infinite;
+  }
+
+  @keyframes gradShift {
+    0%,100% { background-position: 0% center; }
+    50% { background-position: 100% center; }
+  }
+
+  .hero p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 640px;
+    margin: 0 auto 12px;
+    line-height: 1.7;
+  }
+
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+
+  .hero-stat {
+    text-align: center;
+  }
+
+  .hero-stat-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+    text-shadow: 0 0 16px rgba(0,240,255,0.4);
+  }
+
+  .hero-stat-lbl {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Center input section */
+  .center-input-wrap {
+    position: relative;
+    z-index: 5;
+    max-width: 860px;
+    margin: 0 auto 20px;
+    padding: 0 24px;
+  }
+
+  .center-input-card {
+    background: rgba(10,14,24,0.9);
+    border: 1px solid rgba(0,240,255,0.2);
+    border-radius: 20px;
+    padding: 28px 32px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 0 40px rgba(0,240,255,0.06), 0 20px 60px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .center-input-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent3), transparent);
+    opacity: 0.7;
+  }
+
+  .center-input-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .center-input-label::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  .center-textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 16px;
+    resize: none;
+    min-height: 130px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    line-height: 1.7;
+    display: block;
+  }
+
+  .center-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,240,255,0.08), 0 0 24px rgba(0,240,255,0.08);
+  }
+
+  .center-textarea::placeholder { color: var(--muted); font-size: 15px; }
+
+  .center-input-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .char-counter-big {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .char-counter-big .count { color: var(--accent); }
+
+  .btn-calc-center {
+    padding: 14px 36px;
+    background: linear-gradient(135deg, var(--accent), #0099cc);
+    border: none;
+    border-radius: 12px;
+    color: #000;
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-weight: 900;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-calc-center:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,240,255,0.35);
+  }
+
+  .btn-calc-center:active { transform: translateY(0); }
+
+  .btn-ai-center {
+    padding: 14px 24px;
+    background: transparent;
+    border: 1px solid var(--accent3);
+    border-radius: 12px;
+    color: var(--accent3);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-ai-center:hover {
+    background: rgba(191,95,255,0.12);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(191,95,255,0.2);
+  }
+
+  .center-btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* Main container */
+  .container {
+    position: relative;
+    z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* Two-column layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 14px 20px; }
+    .logo-text { font-size: 16px; }
+    .logo-img { height: 36px; }
+    .logo-sub { display: none; }
+    .powered-by a { font-size: 10px; padding: 4px 10px; }
+    .badge { display: none; }
+    .hero { padding: 40px 20px 24px; }
+    .hero-stats { gap: 20px; }
+    .hero-stat-val { font-size: 18px; }
+    .center-input-card { padding: 20px 18px; }
+    .center-btn-row { width: 100%; }
+    .btn-calc-center, .btn-ai-center { flex: 1; justify-content: center; }
+    .container { padding: 0 16px 60px; }
+    footer { padding: 24px 20px; }
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  .card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  /* Form elements */
+  .field {
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  label .sub {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 12px;
+    margin-left: 6px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 140px;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.08);
+  }
+
+  textarea::placeholder { color: var(--muted); }
+
+  input[type="number"], select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.08);
+  }
+
+  select option { background: var(--surface); }
+
+  /* Grid fields */
+  .fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Toggle group */
+  .toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .toggle-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'Noto Sans Thai', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .toggle-btn.active {
+    background: rgba(0,229,255,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .toggle-btn.active-red {
+    background: rgba(255,62,108,0.1);
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  /* Slider */
+  .slider-wrap {
+    position: relative;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(0,229,255,0.5);
+    cursor: pointer;
+  }
+
+  .slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .slider-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    text-align: right;
+    margin-top: 4px;
+  }
+
+  /* CTA Button */
+  .btn-calc {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #0099bb);
+    border: none;
+    border-radius: 12px;
+    color: #000;
+    font-family: 'Noto Sans Thai', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .btn-calc::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #fff, transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn-calc:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,255,0.25); }
+  .btn-calc:hover::before { opacity: 0.1; }
+  .btn-calc:active { transform: translateY(0); }
+
+
+
+  /* Result panel */
+  #result-panel {
+    display: none;
+    animation: slideIn 0.5s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Score circle */
+  .score-ring {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin: 0 auto 24px;
+  }
+
+  .score-ring svg {
+    transform: rotate(-90deg);
+  }
+
+  .score-ring .track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+  }
+
+  .score-ring .fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+  }
+
+  .score-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .score-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .score-unit {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .score-grade {
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  /* Factor bars */
+  .factor-item {
+    margin-bottom: 14px;
+  }
+
+  .factor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  .factor-name { color: var(--text); font-weight: 500; }
+  .factor-score {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  .bar-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.19, 1, 0.22, 1);
+    width: 0;
+  }
+
+  /* Summary boxes */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .summary-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .summary-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .summary-lbl {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Tips */
+  .tip-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .tip-item:last-child { border-bottom: none; }
+
+  .tip-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .tip-icon.warn { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .tip-icon.good { background: rgba(16,185,129,0.15); color: var(--green); }
+  .tip-icon.bad { background: rgba(239,68,68,0.15); color: var(--red); }
+
+
+
+  /* Section label */
+  .section-sep {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .section-sep::before, .section-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Tooltip tag */
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .tag-boost { background: rgba(16,185,129,0.15); color: var(--green); }
+  .tag-penalty { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* Viral level indicator */
+  .viral-level {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin: 12px 0;
+  }
+
+  .vl-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.5s;
+  }
+
+  /* Char counter */
+  .char-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .char-count { color: var(--accent); }
+
+  /* Info row */
+  .info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--muted); }
+  .info-val { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text); }
+
+  /* Formula box */
+  .formula-box {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+    margin-top: 12px;
+  }
+
+  .formula-box .f-label { color: var(--accent); font-size: 10px; letter-spacing: 2px; display: block; margin-bottom: 8px; }
+  .formula-box .f-eq { color: var(--text); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<header>
+  <div class="logo">
+    <a href="javascript:location.reload()" title="Home" style="display:flex;align-items:center;gap:14px;text-decoration:none;cursor:pointer;">
+      <img src="the-mutual-logo.png" alt="The Mutual" class="logo-img" style="height:44px;width:auto;border-radius:8px;">
+      <div>
+        <div class="logo-text">THE <span>MUTUAL</span></div>
+        <div class="logo-sub">Chase Alpha · Share the Vibe</div>
+      </div>
+    </a>
+  </div>
+  <div class="powered-by">
+    <div class="badge">ALGORITHM v2.6</div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-tag"><a href="https://x.com/gKukkui" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">⚡ Powered by KuKKui</a></div>
+  <h1>ประเมิณ<span class="highlight">พลังไวรัล</span><br>ก่อนกด POST</h1>
+  <p>วิเคราะห์โพสต์บน X ด้วยสูตรที่ดึงมาจาก Open-Source Algorithm<br>คำนวณ Viral Potential Score แบบ Real-time ฟรี ไม่ต้องสมัคร</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><span class="hero-stat-val">10+</span><span class="hero-stat-lbl">Algorithm Factors</span></div>
+    <div class="hero-stat"><span class="hero-stat-val">0</span><span class="hero-stat-lbl">Data Collected</span></div>
+    <div class="hero-stat"><span class="hero-stat-val">100%</span><span class="hero-stat-lbl">Open Source</span></div>
+  </div>
+</div>
+
+<!-- CENTER INPUT -->
+<div class="center-input-wrap">
+  <div class="center-input-card">
+    <div class="center-input-label">📝 วางข้อความโพสต์ของคุณที่นี่</div>
+    <textarea id="post-content" class="center-textarea"
+      placeholder="วางข้อความโพสต์ที่ต้องการวิเคราะห์...&#10;&#10;เช่น: &quot;ทุกคนรู้จัก productivity hacks แต่ไม่มีใครพูดถึงสิ่งนี้... 🧵&quot;"
+      oninput="updateCharCount()"></textarea>
+    <div class="center-input-footer">
+      <div class="char-counter-big">ตัวอักษร: <span class="count" id="char-count">0</span>/280 &nbsp;<span id="hook-detect" style="color:var(--green)"></span></div>
+      <div class="center-btn-row">
+
+        <button type="button" class="btn-calc-center" onclick="calculate()">⚡ คำนวณ Viral Score</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="layout">
+
+    <!-- LEFT: Input Form -->
+    <div>
+      <!-- Content Input (settings only — textarea shown above) -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">⚙️ ตั้งค่าโพสต์
+        </div>
+
+        <div class="field">
+          <label>ประเภทเนื้อหา <span class="tag tag-boost">มีผลต่อ weight</span></label>
+          <div class="toggle-group" id="content-type">
+            <button class="toggle-btn active" data-val="text">📝 Text only</button>
+            <button class="toggle-btn" data-val="image">🖼️ มีรูปภาพ</button>
+            <button class="toggle-btn" data-val="video">🎬 วิดีโอ</button>
+            <button class="toggle-btn" data-val="thread">🧵 Thread</button>
+            <button class="toggle-btn" data-val="poll">📊 Poll</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Hashtag ในโพสต์ <span class="tag tag-penalty">&gt;3 อัน = penalty</span></label>
+          <div class="toggle-group" id="hashtag-count">
+            <button class="toggle-btn active" data-val="0">ไม่มี</button>
+            <button class="toggle-btn" data-val="1">1 อัน</button>
+            <button class="toggle-btn" data-val="2">2 อัน</button>
+            <button class="toggle-btn" data-val="3">3 อัน</button>
+            <button class="toggle-btn active-red" data-val="4" style="border-color:var(--border);color:var(--muted)">4+ อัน</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>มี URL / ลิงก์ภายนอก? <span class="tag tag-penalty">ลด reach</span></label>
+          <div class="toggle-group" id="has-url">
+            <button class="toggle-btn active" data-val="no">ไม่มี</button>
+            <button class="toggle-btn" data-val="yes">มีลิงก์ภายนอก</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account factors -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">👤 ข้อมูลบัญชีผู้โพสต์</div>
+
+        <div class="fields-grid">
+          <div class="field">
+            <label>จำนวน Followers</label>
+            <input type="number" id="followers" value="5000" min="0">
+          </div>
+          <div class="field">
+            <label>จำนวน Following</label>
+            <input type="number" id="following" value="2000" min="0">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>อายุบัญชี <span class="sub">เกิน 30 วัน = full boost</span></label>
+          <div class="toggle-group" id="account-age">
+            <button class="toggle-btn" data-val="new">ใหม่ (&lt;30 วัน)</button>
+            <button class="toggle-btn active" data-val="mid">1–12 เดือน</button>
+            <button class="toggle-btn" data-val="old">มากกว่า 1 ปี</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>สถานะบัญชี</label>
+          <div class="toggle-group" id="account-status">
+            <button class="toggle-btn active" data-val="normal">ปกติ</button>
+            <button class="toggle-btn" data-val="verified">✓ Verified</button>
+            <button class="toggle-btn" data-val="blue">𝕏 Blue</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Avg. Engagement Rate ที่ผ่านมา</label>
+          <input type="range" id="avg-er" min="0" max="10" step="0.1" value="1.5" oninput="document.getElementById('er-val').textContent=this.value+'%'">
+          <div class="slider-labels"><span>0%</span><span>5%</span><span>10%</span></div>
+          <div class="slider-val" id="er-val">1.5%</div>
+        </div>
+      </div>
+
+      <!-- Post conditions -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">⚡ สภาวะแวดล้อมของโพสต์</div>
+
+        <div class="field">
+          <label>เวลาที่โพสต์ <span class="sub">เทียบกับ peak hours ของ audience</span></label>
+          <select id="post-time">
+            <option value="peak">🟢 Peak Hours (ช่วงที่คนออนไลน์สูงสุด)</option>
+            <option value="good">🟡 ช่วงเวลาดี (±1–2 ชั่วโมง)</option>
+            <option value="ok">🟠 ปกติ</option>
+            <option value="off">🔴 Off-peak (ดึก/เช้ามืด)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>เกี่ยวข้องกับ Trending Topic?</label>
+          <div class="toggle-group" id="trending">
+            <button class="toggle-btn active" data-val="no">ไม่เกี่ยวข้อง</button>
+            <button class="toggle-btn" data-val="weak">เกี่ยวข้องบ้าง</button>
+            <button class="toggle-btn" data-val="strong">เกี่ยวข้องมาก</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>ภาษาของโพสต์ <span class="tag tag-boost">EN ได้ boost</span></label>
+          <div class="toggle-group" id="post-lang">
+            <button class="toggle-btn active" data-val="th">🇹🇭 ไทย</button>
+            <button class="toggle-btn" data-val="en">🇺🇸 English</button>
+            <button class="toggle-btn" data-val="mixed">🌐 Mixed</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Sentiment / โทนของเนื้อหา</label>
+          <div class="toggle-group" id="sentiment">
+            <button class="toggle-btn" data-val="positive">😊 Positive</button>
+            <button class="toggle-btn active" data-val="neutral">😐 Neutral</button>
+            <button class="toggle-btn" data-val="controversial">🔥 Controversial</button>
+            <button class="toggle-btn" data-val="negative">😤 Negative</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Early Engagement Velocity<span class="sub">ช่วงชั่วโมงแรก</span></label>
+          <div class="toggle-group" id="early-eng">
+            <button class="toggle-btn" data-val="none">ยังไม่โพสต์</button>
+            <button class="toggle-btn active" data-val="low">ต่ำ (0–5 engage)</button>
+            <button class="toggle-btn" data-val="med">ปานกลาง (6–20)</button>
+            <button class="toggle-btn" data-val="high">สูง (20+ engage)</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Network Effects<span class="sub">คนดังในวงการ Retweet?</span></label>
+          <div class="toggle-group" id="network">
+            <button class="toggle-btn active" data-val="none">ไม่มี</button>
+            <button class="toggle-btn" data-val="micro">Micro influencer</button>
+            <button class="toggle-btn" data-val="macro">Macro influencer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <button type="button" class="btn-calc" onclick="calculate()">
+        ⚡ คำนวณ Viral Score
+      </button>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div>
+      <!-- Score card (always visible) -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">📊 Viral Score</div>
+
+        <div id="result-panel">
+          <div class="score-ring">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle class="track" cx="80" cy="80" r="66"/>
+              <circle class="fill" id="score-arc" cx="80" cy="80" r="66"
+                stroke-dasharray="414.7"
+                stroke-dashoffset="414.7"/>
+            </svg>
+            <div class="score-label">
+              <div class="score-number" id="score-display">0</div>
+              <div class="score-unit">/100</div>
+              <div class="score-grade" id="score-grade">—</div>
+            </div>
+          </div>
+
+          <div class="viral-level" id="viral-dots">
+            <div class="vl-dot" id="vd1"></div>
+            <div class="vl-dot" id="vd2"></div>
+            <div class="vl-dot" id="vd3"></div>
+            <div class="vl-dot" id="vd4"></div>
+            <div class="vl-dot" id="vd5"></div>
+            <div class="vl-dot" id="vd6"></div>
+            <div class="vl-dot" id="vd7"></div>
+            <div class="vl-dot" id="vd8"></div>
+            <div class="vl-dot" id="vd9"></div>
+            <div class="vl-dot" id="vd10"></div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-box">
+              <div class="summary-val" id="eng-rate" style="color:var(--accent)">—</div>
+              <div class="summary-lbl">Eng. Rate</div>
+            </div>
+            <div class="summary-box">
+              <div class="summary-val" id="virality-idx" style="color:var(--accent2)">—</div>
+              <div class="summary-lbl">Virality Index</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="no-result" style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">
+          กรอกข้อมูลและกด<br>"คำนวณ Viral Score"
+        </div>
+      </div>
+
+      <!-- Factor breakdown -->
+      <div class="card" style="margin-bottom:20px" id="factors-card" style="display:none">
+        <div class="card-title">🔬 Factor Breakdown</div>
+        <div id="factors-list"></div>
+
+        <div class="formula-box">
+          <span class="f-label">VIRAL POTENTIAL FORMULA</span>
+          <span class="f-eq">VP = (Early Velocity × log₂) × 0.35<br>
++ (Author Reputation × 0.30)<br>
++ (Content Quality × 0.20)<br>
++ (Network Effects × 0.25)<br>
++ Boost Factors − Penalties</span>
+        </div>
+      </div>
+
+      <!-- Info breakdown -->
+      <div class="card" style="margin-bottom:20px" id="info-card">
+        <div class="card-title">📈 ข้อมูลเชิงเปรียบเทียบ</div>
+        <div id="info-rows">
+          <div class="info-row"><span class="info-key">Avg. X Engagement Rate</span><span class="info-val">0.08 – 0.5%</span></div>
+          <div class="info-row"><span class="info-key">Good ER (by followers)</span><span class="info-val">&gt; 1.0%</span></div>
+          <div class="info-row"><span class="info-key">Excellent ER</span><span class="info-val">&gt; 3.0%</span></div>
+          <div class="info-row"><span class="info-key">Viral Threshold</span><span class="info-val">1,000+ RT ใน 1 ชม.</span></div>
+          <div class="info-row"><span class="info-key">First hour contribution</span><span class="info-val">~50% ของ total score</span></div>
+          <div class="info-row"><span class="info-key">Optimal hashtags</span><span class="info-val">2–3 อัน (ไม่เกิน)</span></div>
+        </div>
+      </div>
+
+      <!-- Tips card -->
+      <div class="card" id="tips-card" style="display:none">
+        <div class="card-title">💡 คำแนะนำเพื่อเพิ่ม Score</div>
+        <div id="tips-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /layout -->
+</div>
+
+<!-- COMMUNITY SECTION -->
+<section style="position:relative;z-index:5;padding:60px 24px;">
+  <div style="max-width:760px;margin:0 auto;">
+    <div style="background:linear-gradient(135deg,rgba(10,14,24,0.95),rgba(15,21,32,0.95));border:1px solid rgba(0,240,255,0.15);border-radius:24px;padding:48px 40px;text-align:center;position:relative;overflow:hidden;box-shadow:0 0 60px rgba(0,240,255,0.05),0 20px 60px rgba(0,0,0,0.5);">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,240,255,0.6),rgba(191,95,255,0.6),transparent);"></div>
+      <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--accent);margin-bottom:20px;opacity:0.8;">✦ THE MUTUAL COMMUNITY</div>
+      <p style="font-size:17px;line-height:1.9;color:var(--text);margin-bottom:20px;font-weight:400;">
+        ถ้ายุคนี้การลุยเดี่ยวมันเหงาและไม่รู้จะคุยกับใคร<br><br>
+        ทั้งเรื่อง <span style="color:var(--accent);font-weight:700;">Business / AI / Crypto / Trade / One Person Business</span><br><br>
+        <strong style="color:#ffffff;">THE MUTUAL</strong> : Community สำหรับคนที่มองหามุมมอง เทคนิค หรือมาแลกเปลี่ยนกัน<br>
+        มาแชร์กันด้วย Vibe เป็นกันเอง
+      </p>
+      <div style="font-size:16px;line-height:1.9;color:rgba(234,240,255,0.75);margin-bottom:32px;">
+        <span style="color:var(--accent2);font-weight:700;">&ldquo;</span> เพราะ THE MUTUAL คือ MUTUAL FRENS ของคุณ &nbsp;<span style="color:var(--accent2);font-weight:700;">&rdquo;</span><br>
+        ไม่ว่าสกิลเทพ อัจฉริยะ หรือมือใหม่อยากมา <strong style="color:#ffffff;">&ldquo;ลอกการบ้าน&rdquo;</strong><br>
+        เราก็คือเพื่อนกันทุกคนเนอะ มาจอยกัน และมาสนุกไปด้วยกันนะฮับ
+      </div>
+      <a href="https://discord.com/invite/DCFCc7Jc64" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;padding:16px 36px;background:linear-gradient(135deg,#5865F2,#4752C4);border-radius:14px;color:#fff;text-decoration:none;font-weight:700;font-size:15px;font-family:'Noto Sans Thai',sans-serif;transition:all 0.25s;box-shadow:0 8px 24px rgba(88,101,242,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 12px 32px rgba(88,101,242,0.5)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 24px rgba(88,101,242,0.3)'">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.031.056a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+        เข้าร่วม Discord Community
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer style="position:relative;z-index:5;border-top:1px solid var(--border);padding:32px 40px;text-align:center;background:rgba(5,7,9,0.98);">
+  <div style="max-width:860px;margin:0 auto;">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;">VIRAL SCORE CALCULATOR · ALGORITHM v2.6</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:12px;">
+      <a href="https://x.com/gKukkui" target="_blank" rel="noopener" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);text-decoration:none;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">⚡ Powered by KuKKui</a>
+      <span style="color:var(--border);">|</span>
+      <a href="https://grok.com/c/9b72cc35-fea6-4e5b-939d-717f423623c3?rid=2394bb18-6c89-433e-a475-1ee8adad2b46" target="_blank" rel="noopener" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Ref: X Algorithm Research ↗</a>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:rgba(80,96,112,0.5);letter-spacing:2px;">✦ X ALGORITHM RESEARCH · OPEN SOURCE</div>
+  </div>
+</footer>
+
+<script>
+// ========== Toggle Groups ==========
+document.querySelectorAll('.toggle-group').forEach(group => {
+  group.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // special: active-red buttons keep different class
+      group.querySelectorAll('.toggle-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+      btn.classList.add('active');
+    });
+  });
+});
+
+function getToggleVal(id) {
+  const btn = document.querySelector(`#${id} .toggle-btn.active`);
+  return btn ? btn.dataset.val : null;
+}
+
+// ========== Char Counter ==========
+function updateCharCount() {
+  const txt = document.getElementById('post-content').value;
+  const count = txt.length;
+  document.getElementById('char-count').textContent = count;
+
+  // Hook detection
+  const hookWords = ['🧵','เปิดเผย','ความลับ','ไม่มีใครรู้','เคล็ดลับ','shocking','revealed','thread','nobody talks about','คุณรู้ไหม','truth about'];
+  const hasHook = hookWords.some(w => txt.toLowerCase().includes(w.toLowerCase()));
+  document.getElementById('hook-detect').textContent = hasHook ? '🪝 พบ Hook Pattern!' : '';
+
+  // Color the char count
+  const el = document.getElementById('char-count');
+  if (count > 250) el.style.color = 'var(--accent2)';
+  else if (count > 200) el.style.color = 'var(--orange)';
+  else el.style.color = 'var(--accent)';
+}
+
+// ========== Main Calculate ==========
+function calculate() {
+  const content = document.getElementById('post-content').value.trim();
+  const followers = parseInt(document.getElementById('followers').value) || 0;
+  const following = parseInt(document.getElementById('following').value) || 1;
+  const avgER = parseFloat(document.getElementById('avg-er').value) || 0;
+
+  const contentType = getToggleVal('content-type');
+  const hashtagCount = parseInt(getToggleVal('hashtag-count') || '0');
+  const hasUrl = getToggleVal('has-url') === 'yes';
+  const accountAge = getToggleVal('account-age');
+  const accountStatus = getToggleVal('account-status');
+  const postTime = document.getElementById('post-time').value;
+  const trending = getToggleVal('trending');
+  const lang = getToggleVal('post-lang');
+  const sentiment = getToggleVal('sentiment');
+  const earlyEng = getToggleVal('early-eng');
+  const network = getToggleVal('network');
+
+  // === FACTOR SCORING (0–100 each) ===
+
+  // 1. Early Engagement Velocity (weight: 35%)
+  const earlyMap = { none: 20, low: 40, med: 65, high: 90 };
+  const earlyScore = earlyMap[earlyEng] || 20;
+
+  // 2. Author Reputation (weight: 30%)
+  let repScore = 50;
+  const ffRatio = followers / Math.max(following, 1);
+  if (ffRatio >= 2) repScore += 20;
+  else if (ffRatio >= 0.6) repScore += 10;
+  else repScore -= 10;
+  if (accountStatus === 'verified') repScore += 15;
+  else if (accountStatus === 'blue') repScore += 8;
+  if (accountAge === 'old') repScore += 10;
+  else if (accountAge === 'new') repScore -= 15;
+  if (avgER >= 3) repScore += 15;
+  else if (avgER >= 1) repScore += 8;
+  repScore = Math.min(100, Math.max(0, repScore));
+
+  // 3. Content Quality (weight: 20%)
+  let contentScore = 50;
+  const charCount = content.length;
+  if (charCount > 20 && charCount <= 200) contentScore += 15;
+  else if (charCount > 200) contentScore += 5;
+  else if (charCount < 10) contentScore -= 20;
+
+  // Hook detection
+  const hookWords = ['🧵','เปิดเผย','ความลับ','ไม่มีใครรู้','เคล็ดลับ','shocking','revealed','thread','nobody talks about','คุณรู้ไหม','truth about','🔥','💡','thread'];
+  const hasHook = hookWords.some(w => content.toLowerCase().includes(w.toLowerCase()));
+  if (hasHook) contentScore += 15;
+
+  // Content type bonus
+  const typeBonus = { text: 0, image: 20, video: 25, thread: 18, poll: 12 };
+  contentScore += typeBonus[contentType] || 0;
+
+  // Hashtag
+  if (hashtagCount === 0) contentScore += 0;
+  else if (hashtagCount <= 2) contentScore += 8;
+  else if (hashtagCount === 3) contentScore += 4;
+  else contentScore -= 15; // penalty
+
+  // URL penalty (keeps people off platform)
+  if (hasUrl) contentScore -= 12;
+
+  // Sentiment boost
+  if (sentiment === 'controversial') contentScore += 18;
+  else if (sentiment === 'positive') contentScore += 8;
+  else if (sentiment === 'negative') contentScore -= 5;
+
+  contentScore = Math.min(100, Math.max(0, contentScore));
+
+  // 4. Network Effects (weight: 25%)
+  const netMap = { none: 15, micro: 55, macro: 90 };
+  const networkScore = netMap[network] || 15;
+
+  // 5. Boost Factors
+  let boostScore = 50;
+  if (postTime === 'peak') boostScore += 25;
+  else if (postTime === 'good') boostScore += 15;
+  else if (postTime === 'off') boostScore -= 20;
+
+  if (trending === 'strong') boostScore += 25;
+  else if (trending === 'weak') boostScore += 12;
+
+  if (lang === 'en') boostScore += 10;
+  else if (lang === 'mixed') boostScore += 5;
+
+  boostScore = Math.min(100, Math.max(0, boostScore));
+
+  // === COMPOSITE VIRAL POTENTIAL ===
+  const viralScore = Math.round(
+    earlyScore * 0.35 +
+    repScore * 0.30 +
+    contentScore * 0.20 +
+    networkScore * 0.25 +
+    boostScore * 0.15
+  );
+
+  const finalScore = Math.min(100, Math.round(viralScore * 0.85));
+
+  // Engagement Rate estimate
+  let estER = avgER * (finalScore / 50);
+  const erDisplay = estER.toFixed(2) + '%';
+
+  // Virality Index
+  const viralityIdx = (finalScore / 10).toFixed(1);
+
+  // Grade
+  let grade, gradeColor;
+  if (finalScore >= 85) { grade = '🔥 VIRAL'; gradeColor = 'var(--accent2)'; }
+  else if (finalScore >= 70) { grade = '⚡ HIGH'; gradeColor = 'var(--accent)'; }
+  else if (finalScore >= 55) { grade = '✓ GOOD'; gradeColor = 'var(--green)'; }
+  else if (finalScore >= 40) { grade = '~ AVG'; gradeColor = 'var(--orange)'; }
+  else { grade = '↓ LOW'; gradeColor = 'var(--muted)'; }
+
+  // Show result
+  showResult(finalScore, grade, gradeColor, erDisplay, viralityIdx, {
+    early: earlyScore,
+    reputation: repScore,
+    content: contentScore,
+    network: networkScore,
+    boost: boostScore
+  }, { content, contentType, hashtagCount, hasUrl, lang, sentiment, earlyEng, network, postTime, trending });
+}
+
+function showResult(score, grade, gradeColor, er, vi, factors, context) {
+  document.getElementById('no-result').style.display = 'none';
+  document.getElementById('result-panel').style.display = 'block';
+  document.getElementById('factors-card').style.display = 'block';
+  document.getElementById('tips-card').style.display = 'block';
+
+  // Animate score
+  animateNumber('score-display', 0, score, 1200);
+
+  // Arc
+  const circumference = 414.7;
+  const offset = circumference - (score / 100) * circumference;
+  const arc = document.getElementById('score-arc');
+
+  if (score >= 70) arc.style.stroke = 'var(--accent2)';
+  else if (score >= 55) arc.style.stroke = 'var(--accent)';
+  else if (score >= 40) arc.style.stroke = 'var(--orange)';
+  else arc.style.stroke = 'var(--muted)';
+
+  setTimeout(() => { arc.style.strokeDashoffset = offset; }, 100);
+
+  // Grade
+  const gradeEl = document.getElementById('score-grade');
+  gradeEl.textContent = grade;
+  gradeEl.style.color = gradeColor;
+
+  // Summary
+  document.getElementById('eng-rate').textContent = er;
+  document.getElementById('virality-idx').textContent = vi;
+
+  // Viral dots
+  const dotCount = Math.round(score / 10);
+  for (let i = 1; i <= 10; i++) {
+    const dot = document.getElementById(`vd${i}`);
+    setTimeout(() => {
+      if (i <= dotCount) {
+        if (score >= 70) dot.style.background = 'var(--accent2)';
+        else if (score >= 55) dot.style.background = 'var(--accent)';
+        else dot.style.background = 'var(--orange)';
+        dot.style.boxShadow = `0 0 6px currentColor`;
+      } else {
+        dot.style.background = 'var(--border)';
+      }
+    }, i * 80);
+  }
+
+  // Factors
+  const factorDefs = [
+    { key: 'early', name: 'Early Engagement Velocity', weight: '35%', color: 'var(--accent2)' },
+    { key: 'reputation', name: 'Author Reputation', weight: '30%', color: 'var(--accent3)' },
+    { key: 'content', name: 'Content Quality Score', weight: '20%', color: 'var(--accent)' },
+    { key: 'network', name: 'Network Effects', weight: '25%', color: 'var(--green)' },
+    { key: 'boost', name: 'Boost Factors', weight: '15%', color: 'var(--orange)' },
+  ];
+
+  let factorsHTML = '';
+  factorDefs.forEach(f => {
+    const val = factors[f.key];
+    factorsHTML += `
+      <div class="factor-item">
+        <div class="factor-header">
+          <span class="factor-name">${f.name} <small style="color:var(--muted);font-size:11px">(${f.weight})</small></span>
+          <span class="factor-score" style="color:${f.color}">${val}/100</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="bar-${f.key}" style="background:${f.color}"></div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('factors-list').innerHTML = factorsHTML;
+  setTimeout(() => {
+    factorDefs.forEach(f => {
+      const bar = document.getElementById(`bar-${f.key}`);
+      if (bar) bar.style.width = factors[f.key] + '%';
+    });
+  }, 200);
+
+  // Tips
+  generateTips(context);
+}
+
+function generateTips(ctx) {
+  const tips = [];
+  const hashN = parseInt(ctx.hashtagCount);
+
+  if (ctx.earlyEng === 'none' || ctx.earlyEng === 'low') {
+    tips.push({ type: 'warn', text: 'Reply ให้ผู้ติดตามภายใน <strong>30 นาทีแรก</strong> หลังโพสต์ — ช่วงแรกมีผลถึง 50% ของคะแนนทั้งหมด' });
+  }
+  if (hashN >= 4) {
+    tips.push({ type: 'bad', text: 'ลด Hashtag ให้เหลือ <strong>2–3 อัน</strong> — การใช้มากกว่านั้นทำให้ algorithm ลดการแสดงผล (spam filter)' });
+  }
+  if (ctx.hasUrl) {
+    tips.push({ type: 'bad', text: 'หลีกเลี่ยงการใส่ลิงก์ภายนอก — X algorithm ต้องการให้ผู้ใช้อยู่บนแพลตฟอร์ม ลิงก์ภายนอกลด reach' });
+  }
+  if (ctx.contentType === 'text') {
+    tips.push({ type: 'warn', text: 'ลองเพิ่ม <strong>รูปภาพหรือวิดีโอ</strong> — media content ได้ผล boost เพิ่มเติมจาก algorithm' });
+  }
+  if (ctx.network === 'none') {
+    tips.push({ type: 'warn', text: '<strong>Mention</strong> หรือ engage กับ influencer ในวงการ — Network effect มีน้ำหนักถึง 25% ของ score' });
+  }
+  if (ctx.sentiment === 'neutral') {
+    tips.push({ type: 'warn', text: 'เพิ่มความ <strong>controversial</strong> หรือ hot take เล็กน้อย — โพสต์ที่กระตุ้นอารมณ์ได้ reply มากกว่า' });
+  }
+  if (ctx.lang === 'th') {
+    tips.push({ type: 'warn', text: 'เพิ่มส่วน <strong>ภาษาอังกฤษ</strong> ในโพสต์ — X algorithm boost เนื้อหาภาษาอังกฤษให้ reach กว้างขึ้น' });
+  }
+  if (ctx.contentType === 'thread') {
+    tips.push({ type: 'good', text: '<strong>Thread</strong> รักษาผู้ใช้อยู่บนแพลตฟอร์มนานขึ้น (dwell time) → ส่งสัญญาณ positive ให้ algorithm' });
+  }
+  if (ctx.trending === 'no') {
+    tips.push({ type: 'warn', text: 'ลอง <strong>เชื่อมโยงกับ Trending topic</strong> ในช่วงนั้น — เนื้อหาที่ timely ได้ visibility boost อัตโนมัติ' });
+  }
+  if (tips.length === 0) {
+    tips.push({ type: 'good', text: 'โพสต์ของคุณได้รับการ optimize อย่างดีแล้ว! รักษาความสม่ำเสมอในการโพสต์ต่อไป' });
+  }
+
+  let html = '';
+  tips.slice(0, 5).forEach(t => {
+    const icon = t.type === 'good' ? '✓' : t.type === 'bad' ? '✕' : '!';
+    html += `<div class="tip-item">
+      <div class="tip-icon ${t.type}">${icon}</div>
+      <div style="color:var(--text);line-height:1.5">${t.text}</div>
+    </div>`;
+  });
+  document.getElementById('tips-list').innerHTML = html;
+}
+
+function animateNumber(id, from, to, duration) {
+  const el = document.getElementById(id);
+  const start = performance.now();
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (to - from) * ease);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+
+
+// Init
+updateCharCount();
+</script>
+</body>
+</html>
